@@ -7,12 +7,7 @@ editor: visual
 
 # Introduction
 
-This project aims to use the U.S. Census API to extract and analyze individualized 
-data from the U.S. Census PUMS dataset. The goal is to build a flexible data 
-processing workflow that enables researches to query, process, and analyze 
-survey data using weighted statistical methods. Due to the impact of the 
-COVID-19 pandemic, data from 2020 has been excluded, providing an opportunity 
-to compare data patterns before and after the pandemic.
+This project aims to use the U.S. Census API to extract and analyze individualized data from the U.S. Census PUMS dataset. The goal is to build a flexible data processing workflow that enables researches to query, process, and analyze survey data using weighted statistical methods. Due to the impact of the COVID-19 pandemic, data from 2020 has been excluded, providing an opportunity to compare data patterns before and after the pandemic.
 
 # Load Libraries
 
@@ -26,8 +21,7 @@ library(ggplot2)
 
 ## Data Processing
 
-We begin by constructing a data processing pipeline that includes data 
-retrieval, parsing, and cleaning.
+We begin by constructing a data processing pipeline that includes data retrieval, parsing, and cleaning.
 
 ```{r}
 url <- "https://api.census.gov/data/2022/acs/acs1/pums?get=SEX,AGEP,PWGTP,SCHL&key=1c79cd9423b45d9bcae0f21f1c8080b2d8560a24"
@@ -195,17 +189,10 @@ head(df_multi)
 
 # Narrative
 
-Excluding data from 2020 helps facilitate a comparison of demographic variables 
-before and after the COVID-19 pandemic. The results show that the age distribution 
-remained stable across all years, indicating consistency in the population structure.
+Excluding data from 2020 helps facilitate a comparison of demographic variables before and after the COVID-19 pandemic. The results show that the age distribution remained stable across all years, indicating consistency in the population structure.
 
-In contrast, the GRPIP index showed a steady downward trend from 2019 to 2022, 
-suggesting changes in housing affordability or income dynamics. However, 
-the high level of variability indicates that the impact varied among individuals.
+In contrast, the GRPIP index showed a steady downward trend from 2019 to 2022, suggesting changes in housing affordability or income dynamics. However, the high level of variability indicates that the impact varied among individuals.
 
-The gender distribution remained stable, and enrollment patterns showed little 
-change. However, education attainment shifted toward higher levels.
+The gender distribution remained stable, and enrollment patterns showed little change. However, education attainment shifted toward higher levels.
 
-Overall, the findings suggest that demographic variables remain stable, 
-while socioeconomic indicators are more sensitive to external shocks such 
-as the COVID-19 pandemic.
+Overall, the findings suggest that demographic variables remain stable, while socioeconomic indicators are more sensitive to external shocks such as the COVID-19 pandemic.
