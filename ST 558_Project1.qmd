@@ -1,0 +1,211 @@
+---
+title: "ST558_Project1"
+author: "Stephanie Shuai"
+format: html
+editor: visual
+---
+
+# Introduction
+
+This project aims to use the U.S. Census API to extract and analyze individualized 
+data from the U.S. Census PUMS dataset. The goal is to build a flexible data 
+processing workflow that enables researches to query, process, and analyze 
+survey data using weighted statistical methods. Due to the impact of the 
+COVID-19 pandemic, data from 2020 has been excluded, providing an opportunity 
+to compare data patterns before and after the pandemic.
+
+# Load Libraries
+
+```{r}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+```
+
+## Data Processing
+
+We begin by constructing a data processing pipeline that includes data 
+retrieval, parsing, and cleaning.
+
+```{r}
+url <- "https://api.census.gov/data/2022/acs/acs1/pums?get=SEX,AGEP,PWGTP,SCHL&key=1c79cd9423b45d9bcae0f21f1c8080b2d8560a24"
+
+# ---- GET Function ----
+get_census_data <- function(url){
+  res <- httr::GET(url)
+  if(httr::status_code(res) != 200){
+    stop("API request failed")
+  }
+  
+  return(res)
+}
+
+# ---- Parse Function ----
+parse_to_tibble <- function(res) {
+  txt <- content(res, as = "text", encoding = "UTF-8")
+  json <- fromJSON(txt)
+  
+  df <- as.data.frame(json)
+  colnames(df) <- df[1,]
+  df <- df[-1,]
+  
+  as_tibble(df)
+}
+
+process_geo_subset <- function(geo = "state", geo_filter = "*") {
+  if(geo_filter == "all") geo_filter <- "*"
+  paste0("for=", geo, ":", geo_filter)
+}
+```
+
+# Main Query Function
+
+```{r}
+query_census <- function(
+    year = 2022, 
+    num_var = c("AGEP","PWGTP"),
+    cat_var = "SEX",
+    geography = "state",
+    geo_filter = "*"
+  ){
+  
+  # ---- Validation ----
+  if (year < 2010 | year > 2022 | year == 2020 ){
+    stop("Invalid year")
+  }
+  
+  num <- c("AGEP", "GASP", "GRPIP", "JWAP", "JWDP","JWMNP", "PWGTP")
+  cat <- c("FER", "HHL", "SCH", "SCHL", "SEX")
+  
+  if (!all(num_var %in% num)) stop("Invalid numeric var")
+  if (!all(cat_var %in% cat)) stop("Invalid categorical var")
+  
+  if (!"PWGTP" %in% num_var ) {
+    num_var <- c(num_var, "PWGTP")
+  }
+  
+  geo <- c("state", "region", "division")
+  if (!geography %in% geo) {
+    stop("Invalid geography")
+  }
+  
+  vars <- na.omit(unique(c(num_var, cat_var)))
+  var_string <- paste(vars, collapse = ",")
+
+  geo_string <- paste0("for=", geography, ":", geo_filter)
+  
+  url <- paste0(
+    "http://api.census.gov/data/",
+    year,
+    "/acs/acs1/pums?get=",
+    var_string,
+    "&",
+    geo_string,
+    "&key=1c79cd9423b45d9bcae0f21f1c8080b2d8560a24"
+    )
+  res <- get_census_data(url)
+  df <- parse_to_tibble(res)
+  
+  df$AGEP <- as.numeric(df$AGEP)
+  df$PWGTP <- as.numeric(df$PWGTP)
+  df$SEX <- factor(df$SEX, levels = c("1","2"), labels = c("Male","Female"))
+
+  for (v in num_var){
+    df[[v]] <- as.numeric(df[[v]])
+  }
+  for (v in cat_var){
+    df[[v]] <- as.factor(df[[v]])
+  }
+  class(df) <- c("census", class(df))
+  
+  return(df)
+}
+
+# ---- Multi-Year Function ----
+query_census_multi <- function(years, ...){
+  if (any(years == 2020)) stop("Exclude 2020")
+  if (any(years < 2010 | years > 2022)) stop("Invalid year")
+  
+  all_data <- lapply(years, function(y){
+    df <- query_census(year = y, ...)
+    df$year <- y
+    df
+  })
+  dplyr::bind_rows(all_data)
+}
+```
+
+## Writing a Generic Function for Summarzing
+
+```{r}
+# ---- Summary Function ----
+summary.census <- function(object, num_var , cat_var ){
+  x <- object[[num_var]]
+  w <- object$PWGTP
+  
+  w_mean <- sum(x*w)/sum(w)
+  cat_counts <- table(object[[cat_var]])
+  
+  list(
+    weighted_mean = sum(x*w) /sum(w),
+    weighted_sd = sqrt(sum(w* x^2) / sum(w) - w_mean^2),
+    category_counts = cat_counts
+  )
+}
+# ---- Plot Function ----
+plot.census <- function(x, num_var, cat_var) {
+  if(nrow(x) > 5000){
+    x <- x %>% slice_sample(n=5000)}
+  
+  ggplot(x, aes(x = .data[[cat_var]], 
+                y = .data[[num_var]], 
+                weight = PWGTP)) +
+    geom_boxplot() + 
+    labs(x = cat_var, y = num_var) + 
+    theme_minimal()
+}
+```
+
+## Example
+
+```{r}
+df <- query_census(
+  num_var = c("AGEP","PWGTP"),
+  cat_var = c("SEX", "SCHL"))
+
+head(df)
+
+summary(df, num_var = "AGEP", cat_var = "SEX")
+
+plot(df, num_var = "AGEP", cat_var = "SEX")
+
+# Multi-year example
+df_multi <- query_census_multi(
+  years = c(2019, 2021),
+  num_var = c("AGEP", "PWGTP"),
+  cat_var = "SEX",
+  geography = "state",
+  geo_filter = "37"
+)
+
+head(df_multi)
+```
+
+# Narrative
+
+Excluding data from 2020 helps facilitate a comparison of demographic variables 
+before and after the COVID-19 pandemic. The results show that the age distribution 
+remained stable across all years, indicating consistency in the population structure.
+
+In contrast, the GRPIP index showed a steady downward trend from 2019 to 2022, 
+suggesting changes in housing affordability or income dynamics. However, 
+the high level of variability indicates that the impact varied among individuals.
+
+The gender distribution remained stable, and enrollment patterns showed little 
+change. However, education attainment shifted toward higher levels.
+
+Overall, the findings suggest that demographic variables remain stable, 
+while socioeconomic indicators are more sensitive to external shocks such 
+as the COVID-19 pandemic.
