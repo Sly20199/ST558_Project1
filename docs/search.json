@@ -1,0 +1,37 @@
+[
+  {
+    "objectID": "ST558_Project1.html",
+    "href": "ST558_Project1.html",
+    "title": "ST_558_Project1",
+    "section": "",
+    "text": "This project aims to use the U.S. Census API to extract and analyze individualized data from the U.S. Census PUMS dataset. The goal is to build a flexible data processing workflow that enables researches to query, process, and analyze survey data using weighted statistical methods. Due to the impact of the COVID-19 pandemic, data from 2020 has been excluded, providing an opportunity to compare data patterns before and after the pandemic."
+  },
+  {
+    "objectID": "ST558_Project1.html#introduction",
+    "href": "ST558_Project1.html#introduction",
+    "title": "ST_558_Project1",
+    "section": "",
+    "text": "This project aims to use the U.S. Census API to extract and analyze individualized data from the U.S. Census PUMS dataset. The goal is to build a flexible data processing workflow that enables researches to query, process, and analyze survey data using weighted statistical methods. Due to the impact of the COVID-19 pandemic, data from 2020 has been excluded, providing an opportunity to compare data patterns before and after the pandemic."
+  },
+  {
+    "objectID": "ST558_Project1.html#data-processing",
+    "href": "ST558_Project1.html#data-processing",
+    "title": "ST_558_Project1",
+    "section": "Data Processing",
+    "text": "Data Processing\nWe begin by constructing a data processing pipeline that includes data retrieval, parsing, and cleaning.\n\nurl &lt;- \"https://api.census.gov/data/2022/acs/acs1/pums?get=SEX,AGEP,PWGTP,SCHL&key=1c79cd9423b45d9bcae0f21f1c8080b2d8560a24\"\n\n# ---- GET Function ----\nget_census_data &lt;- function(url){\n  res &lt;- httr::GET(url)\n  if(httr::status_code(res) != 200){\n    stop(\"API request failed\")\n  }\n  \n  return(res)\n}\n\n# ---- Parse Function ----\nparse_to_tibble &lt;- function(res) {\n  txt &lt;- content(res, as = \"text\", encoding = \"UTF-8\")\n  json &lt;- fromJSON(txt)\n  \n  df &lt;- as.data.frame(json)\n  colnames(df) &lt;- df[1,]\n  df &lt;- df[-1,]\n  \n  as_tibble(df)\n}\n\nprocess_geo_subset &lt;- function(geo = \"state\", geo_filter = \"37\") {\n  if(geo_filter == \"all\") geo_filter &lt;- \"37\"\n  paste0(\"for=\", geo, \":\", geo_filter)\n}"
+  },
+  {
+    "objectID": "ST558_Project1.html#writing-a-generic-function-for-summarizing",
+    "href": "ST558_Project1.html#writing-a-generic-function-for-summarizing",
+    "title": "ST_558_Project1",
+    "section": "Writing a Generic Function for Summarizing",
+    "text": "Writing a Generic Function for Summarizing\n\n# ---- Summary Function ----\nsummary.census &lt;- function(object, num_var , cat_var ){\n  x &lt;- object[[num_var]]\n  w &lt;- object$PWGTP\n  \n  w_mean &lt;- sum(x*w)/sum(w)\n  cat_counts &lt;- table(object[[cat_var]])\n  \n  list(\n    weighted_mean = sum(x*w) /sum(w),\n    weighted_sd = sqrt(sum(w* x^2) / sum(w) - w_mean^2),\n    category_counts = cat_counts\n  )\n}\n# ---- Plot Function ----\nplot.census &lt;- function(x, num_var, cat_var) {\n  if(nrow(x) &gt; 5000){\n    x &lt;- x %&gt;% slice_sample(n=5000)}\n  \n  ggplot(x, aes(x = .data[[cat_var]], \n                y = .data[[num_var]], \n                weight = PWGTP)) +\n    geom_boxplot() + \n    labs(x = cat_var, y = num_var) + \n    theme_minimal()\n}"
+  },
+  {
+    "objectID": "ST558_Project1.html#example",
+    "href": "ST558_Project1.html#example",
+    "title": "ST_558_Project1",
+    "section": "Example",
+    "text": "Example\n\ndf &lt;- query_census(\n  num_var = c(\"AGEP\",\"PWGTP\"),\n  cat_var = c(\"SEX\", \"SCHL\"))\n\nhead(df)\n\n# A tibble: 6 × 5\n   AGEP PWGTP SEX    SCHL  state\n  &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;  &lt;fct&gt; &lt;chr&gt;\n1    17     3 Female 14    20   \n2    73    42 Male   16    12   \n3    22    11 Male   19    26   \n4    82    32 Female 23    17   \n5    19    31 Female 16    36   \n6    88    32 Male   22    12   \n\nsummary(df, num_var = \"AGEP\", cat_var = \"SEX\")\n\n$weighted_mean\n[1] 39.54931\n\n$weighted_sd\n[1] 23.26344\n\n$category_counts\n\n   Male  Female \n1656215 1717163 \n\nplot(df, num_var = \"AGEP\", cat_var = \"SEX\")\n\n\n\n\n\n\n\n# Multi-year example\ndf_multi &lt;- query_census_multi(\n  years = c(2019, 2021),\n  num_var = c(\"AGEP\", \"PWGTP\"),\n  cat_var = \"SEX\",\n  geography = \"state\",\n  geo_filter = \"37\"\n)\n\nhead(df_multi)\n\n# A tibble: 6 × 5\n   AGEP PWGTP SEX   state  year\n  &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt; &lt;chr&gt; &lt;dbl&gt;\n1    52    70 Male  37     2019\n2    50    70 Male  37     2019\n3    28    16 Male  37     2019\n4    49    80 Male  37     2019\n5     3     7 Male  37     2019\n6    30    52 Male  37     2019"
+  }
+]
